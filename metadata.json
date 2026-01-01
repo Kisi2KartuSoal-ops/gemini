@@ -1,0 +1,5 @@
+{
+  "name": "Madrasah Lesson Plan Generator (RPP KBC)",
+  "description": "A high-performance React application for teachers to generate Kurikulum Merdeka lesson plans integrated with the Kurikulum Berbasis Cinta (KBC) framework. Features automated CP database, AI-powered assistance, and document export capabilities.",
+  "requestFramePermissions": []
+}
