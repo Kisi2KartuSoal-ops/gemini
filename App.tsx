@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { RppFormData, Fase, Jenjang } from './types';
-import { CP_DATABASE, KELAS_FASE_MAP, DPL_OPTIONS, PANCA_CINTA_OPTIONS, RUBRIK_DATABASE } from './constants';
+import { CP_DATABASE, KELAS_FASE_MAP, DPL_OPTIONS, PANCA_CINTA_OPTIONS, RUBRIK_DATABASE, JENJANG_SUBJECTS } from './constants';
 import InputGroup from './components/InputGroup';
 import ResultSection from './components/ResultSection';
 import { generateLessonObjectives, generateLearningExperience, generateKbcQuestions } from './services/gemini';
@@ -14,39 +14,25 @@ const App: React.FC = () => {
   
   const [formData, setFormData] = useState<RppFormData>({
     jenjang: '', namaMadrasah: '', namaKepala: '', nipKepala: '', namaGuru: '', nipGuru: '',
-    mataPelajaran: '', kelas: '', fase: '', semester: '', tahunPembelajaran: '2024/2025',
+    mataPelajaran: '', kelas: '', fase: '', semester: 'Ganjil', tahunPembelajaran: '2025/2026',
     capaianPembelajaran: '', materi: '', materiKBC: '', alokasi: '', kriteriaPembelajaran: '',
-    tujuanPembelajaran: '', pendekatan: '', model: '', mediaAlat: '', kota: '',
-    tanggalPengesahan: new Date().getDate().toString(), bulanPengesahan: '', tahunPengesahan: '2025',
-    jumlahPGKompleks: 5, jumlahPGHOTS: 3, jumlahBenarSalah: 2, jumlahUraian: 3,
-    jumlahIsian: 2, jumlahMenjodohkan: 2,
+    tujuanPembelajaran: '', pendekatan: 'Saintifik', model: 'Problem Based Learning (PBL)', mediaAlat: '', kota: '',
+    tanggalPengesahan: '4', bulanPengesahan: 'Januari', tahunPengesahan: '2026',
+    jumlahPGKompleks: 5, jumlahPGHOTS: 3, jumlahBenarSalah: 5, jumlahUraian: 3,
+    jumlahIsian: 5, jumlahMenjodohkan: 3,
     dpl: [], pancaCinta: [],
-    prinsip: { berkesadaran: '', bermakna: '', menyenangkan: '' },
-    kerangka: { praktikPedagogis: '', lingkungan: '', kemitraan: '', digital: '' },
     asesmenAwal: '',
     asesmenTengah: { jenisKegiatan: '', instrumen: '', rubrik: [] }
   });
 
   const [isAiLoading, setIsAiLoading] = useState(false);
 
-  const mataPelajaranOptions = Object.keys(CP_DATABASE).map(key => ({
-    value: key,
-    label: key.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
-  }));
+  const availableSubjects = formData.jenjang ? JENJANG_SUBJECTS[formData.jenjang] || [] : [];
+  const mapelOptions = availableSubjects.map(s => ({ value: s.toLowerCase(), label: s }));
 
-  const processAssessmentOptions = Object.keys(RUBRIK_DATABASE);
-
-  const checkJenjangKelasMatch = (jenjang: string, kelas: string) => {
-    if (!jenjang || !kelas) return true;
-    const miClasses = ['I', 'II', 'III', 'IV', 'V', 'VI'];
-    const mtsClasses = ['VII', 'VIII', 'IX'];
-    const maClasses = ['X', 'XI', 'XII'];
-    
-    if (jenjang === 'MI' && !miClasses.includes(kelas)) return false;
-    if (jenjang === 'MTs' && !mtsClasses.includes(kelas)) return false;
-    if (jenjang === 'MA' && !maClasses.includes(kelas)) return false;
-    return true;
-  };
+  const kelasOptions = formData.jenjang === 'MI' ? ['I', 'II', 'III', 'IV', 'V', 'VI'] :
+                 formData.jenjang === 'MTs' ? ['VII', 'VIII', 'IX'] :
+                 formData.jenjang === 'MA' ? ['X', 'XI', 'XII'] : [];
 
   useEffect(() => {
     const { jenjang, kelas, mataPelajaran } = formData;
@@ -60,31 +46,32 @@ const App: React.FC = () => {
 
     const mapelKey = mataPelajaran.toLowerCase();
     const subjectData = CP_DATABASE[mapelKey];
-    const isMatch = checkJenjangKelasMatch(jenjang, kelas);
-
+    
     let finalCP = '';
     let warning = false;
 
-    if (isMatch && subjectData && subjectData[jenjang] && subjectData[jenjang][currentFase]) {
+    if (subjectData && subjectData[jenjang] && subjectData[jenjang][currentFase]) {
       finalCP = subjectData[jenjang][currentFase];
       warning = false;
     } else {
       warning = true;
-      if (!isMatch) {
-        finalCP = `[PERINGATAN] Kelas ${kelas} tidak sesuai untuk jenjang ${jenjang}. Mohon sesuaikan pilihan Kelas atau Jenjang agar Capaian Pembelajaran (CP) muncul otomatis.`;
-      } else if (!subjectData) {
-        finalCP = `[PERINGATAN] Data CP untuk Mata Pelajaran "${mataPelajaran}" belum tersedia di database. Silakan isi secara manual.`;
-      } else {
-        finalCP = `[PERINGATAN] Data CP untuk jenjang ${jenjang} Fase ${currentFase} pada mata pelajaran ini tidak ditemukan. Silakan isi secara manual.`;
-      }
+      finalCP = `[OTOMATIS GAGAL] Data CP tidak ditemukan di database. Silakan isi manual.`;
     }
 
     setIsCpWarning(warning);
-    setFormData(prev => ({ ...prev, fase: currentFase as Fase, capaianPembelajaran: finalCP }));
+    setFormData(prev => ({ 
+      ...prev, 
+      fase: currentFase as Fase, 
+      capaianPembelajaran: finalCP 
+    }));
   }, [formData.jenjang, formData.kelas, formData.mataPelajaran]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { id, value } = e.target;
+    if (id === 'jenjang') {
+      setFormData(prev => ({ ...prev, jenjang: value as Jenjang, mataPelajaran: '', kelas: '', capaianPembelajaran: '' }));
+      return;
+    }
     if (id.includes('.')) {
         const [parent, child] = id.split('.');
         setFormData(prev => ({ ...prev, [parent]: { ...(prev as any)[parent], [child]: value } }));
@@ -101,189 +88,162 @@ const App: React.FC = () => {
   };
 
   const handleAiGenerateObjectives = async () => {
-    if (!formData.materi || !formData.mataPelajaran) return alert("Isi Mapel dan Materi Pokok!");
+    if (!formData.materi || !formData.mataPelajaran || !formData.fase) {
+      return alert("Mohon pilih Mata Pelajaran, Kelas (Fase), dan isi Materi Pokok terlebih dahulu!");
+    }
     setIsAiLoading(true);
-    const result = await generateLessonObjectives(formData.materi, formData.mataPelajaran, formData.fase);
-    setFormData(prev => ({ ...prev, tujuanPembelajaran: result }));
-    setIsAiLoading(false);
+    try {
+      const result = await generateLessonObjectives(formData.materi, formData.mataPelajaran, formData.fase);
+      setFormData(prev => ({ ...prev, tujuanPembelajaran: result }));
+    } catch (err) {
+      alert("Gagal menghubungi AI. Silakan coba sesaat lagi.");
+    } finally {
+      setIsAiLoading(false);
+    }
   };
 
   const handleGenerate = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (formData.pancaCinta.length === 0) return alert("Pilih minimal satu Nilai Panca Cinta!");
-    if (formData.dpl.length === 0) return alert("Pilih minimal satu Dimensi Profil Lulusan!");
     
     setIsGenerating(true);
     try {
         const [experience, questions] = await Promise.all([
-            generateLearningExperience(formData.materi, formData.mataPelajaran, formData.alokasi, formData.pancaCinta),
+            generateLearningExperience(formData.materi, formData.mataPelajaran, formData.alokasi, formData.pancaCinta, formData.dpl),
             generateKbcQuestions(formData.materi, formData.mataPelajaran, formData.pancaCinta, {
-                hots: formData.jumlahPGHOTS, kompleks: formData.jumlahPGKompleks, 
-                benarSalah: formData.jumlahBenarSalah, isian: formData.jumlahIsian,
-                uraian: formData.jumlahUraian, menjodohkan: formData.jumlahMenjodohkan
+                hots: formData.jumlahPGHOTS, 
+                kompleks: formData.jumlahPGKompleks, 
+                benarSalah: formData.jumlahBenarSalah,
+                isian: formData.jumlahIsian,
+                uraian: formData.jumlahUraian,
+                menjodohkan: formData.jumlahMenjodohkan
             })
         ]);
         setAiContent({ experience, questionsText: questions });
         setView('result');
         window.scrollTo(0, 0);
     } catch (err) {
-        alert("Gagal memproses AI. Periksa koneksi internet Anda.");
+        alert("Gagal memproses AI. Mohon cek kuota API atau koneksi internet.");
     } finally {
         setIsGenerating(false);
     }
   };
 
   return (
-    <div className="min-h-screen pb-12 bg-gray-50 font-[Poppins]">
-      <header className="bg-gradient-to-r from-[#4A90E2] to-[#764ba2] text-white py-8 no-print shadow-lg">
-        <div className="container mx-auto px-4 flex flex-col items-center">
-            <img src="https://iili.io/fYvaKwF.jpg" className="w-20 h-20 rounded-full border-2 border-white shadow-lg mb-4 object-cover" alt="Kang Abede" />
-            <div className="text-center">
-              <h1 className="text-2xl font-black tracking-tight uppercase">🎓 Rencana Pembelajaran Mendalam Berbasis Cinta</h1>
-              <p className="mt-1 text-blue-100 opacity-80 text-sm italic">Otomasi Kurikulum Madrasah - Kurikulum Berbasis Cinta (KBC)</p>
-            </div>
+    <div className="min-h-screen pb-12 bg-gray-50 font-sans">
+      <header className="bg-gradient-to-r from-indigo-800 to-purple-900 text-white py-14 no-print shadow-2xl relative overflow-hidden">
+        <div className="container mx-auto px-4 text-center relative z-10">
+            <img src="https://iili.io/fYvaKwF.jpg" className="w-28 h-28 rounded-full border-4 border-white shadow-2xl mb-4 mx-auto object-cover" alt="Logo" />
+            <h1 className="text-4xl font-black uppercase tracking-tighter">RENCANA PEMBELAJARAN MENDALAM (RPM)</h1>
+            <p className="mt-2 text-indigo-100 opacity-95 text-lg font-medium italic">Kurikulum Berbasis Cinta (KBC) • Madrasah Masa Depan</p>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 mt-8">
+      <main className="container mx-auto px-4 mt-10">
         {view === 'form' ? (
-          <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl p-6 md:p-10 border border-gray-100">
-            <form onSubmit={handleGenerate} className="space-y-10">
+          <div className="max-w-5xl mx-auto bg-white rounded-[2rem] shadow-2xl p-8 md:p-14 border border-gray-100">
+            <form onSubmit={handleGenerate} className="space-y-16">
               <section>
-                <div className="flex items-center gap-2 mb-6 border-l-4 border-indigo-600 pl-4">
-                  <h2 className="text-lg font-black text-indigo-900 uppercase">1. Identitas Madrasah & Guru</h2>
+                <div className="flex items-center gap-4 mb-8 border-l-8 border-indigo-600 pl-5">
+                  <h2 className="text-2xl font-black text-indigo-950 uppercase tracking-tight">1. Identitas Madrasah</h2>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6">
-                  <InputGroup label="Jenjang" id="jenjang" as="select" options={['MI', 'MTs', 'MA']} value={formData.jenjang} onChange={handleChange} />
-                  <InputGroup label="Nama Madrasah" id="namaMadrasah" placeholder="MIS/MTsN/MAN ..." value={formData.namaMadrasah} onChange={handleChange} />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <InputGroup label="Jenjang Madrasah" id="jenjang" as="select" options={['MI', 'MTs', 'MA']} value={formData.jenjang} onChange={handleChange} />
+                  <InputGroup label="Nama Madrasah" id="namaMadrasah" placeholder="e.g. MIN 1 Kota" value={formData.namaMadrasah} onChange={handleChange} />
                   <InputGroup label="Nama Guru" id="namaGuru" value={formData.namaGuru} onChange={handleChange} />
                   <InputGroup label="NIP Guru" id="nipGuru" value={formData.nipGuru} onChange={handleChange} />
-                  <InputGroup label="Nama Kepala" id="namaKepala" value={formData.namaKepala} onChange={handleChange} />
-                  <InputGroup label="NIP Kepala" id="nipKepala" value={formData.nipKepala} onChange={handleChange} />
+                  <InputGroup label="Nama Kepala Madrasah" id="namaKepala" value={formData.namaKepala} onChange={handleChange} />
+                  <InputGroup label="NIP Kepala Madrasah" id="nipKepala" value={formData.nipKepala} onChange={handleChange} />
                 </div>
               </section>
 
               <section>
-                <div className="flex items-center gap-2 mb-6 border-l-4 border-indigo-600 pl-4">
-                  <h2 className="text-lg font-black text-indigo-900 uppercase">2. Data Pembelajaran</h2>
+                <div className="flex items-center gap-4 mb-8 border-l-8 border-indigo-600 pl-5">
+                  <h2 className="text-2xl font-black text-indigo-950 uppercase tracking-tight">2. Materi & Fase</h2>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6">
-                  <InputGroup label="Mata Pelajaran" id="mataPelajaran" as="select" options={mataPelajaranOptions} value={formData.mataPelajaran} onChange={handleChange} />
-                  <InputGroup label="Materi Pokok" id="materi" placeholder="Contoh: Energi dan Perubahannya" value={formData.materi} onChange={handleChange} />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <InputGroup label="Mata Pelajaran" id="mataPelajaran" as="select" options={mapelOptions} value={formData.mataPelajaran} onChange={handleChange} />
+                  <InputGroup label="Materi Pokok" id="materi" placeholder="e.g. Rukun Islam" value={formData.materi} onChange={handleChange} />
                   <div className="grid grid-cols-2 gap-4">
-                    <InputGroup label="Kelas" id="kelas" as="select" options={['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII']} value={formData.kelas} onChange={handleChange} />
-                    <InputGroup label="Fase" id="fase" value={formData.fase} onChange={() => {}} readOnly helper="Otomatis" />
+                    <InputGroup label="Kelas" id="kelas" as="select" options={kelasOptions} value={formData.kelas} onChange={handleChange} />
+                    <InputGroup label="Semester" id="semester" as="select" options={['Ganjil', 'Genap']} value={formData.semester} onChange={handleChange} />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-                    <InputGroup label="Semester" id="semester" as="select" options={['Ganjil', 'Genap']} value={formData.semester} onChange={handleChange} />
+                    <InputGroup label="Tahun Pembelajaran" id="tahunPembelajaran" as="select" options={['2023/2024', '2024/2025', '2025/2026', '2026/2027']} value={formData.tahunPembelajaran} onChange={handleChange} />
                     <InputGroup label="Alokasi Waktu" id="alokasi" placeholder="e.g. 2 x 35 Menit" value={formData.alokasi} onChange={handleChange} />
                   </div>
                 </div>
-                
-                <InputGroup 
-                  label="Kriteria Pembelajaran (Karakteristik Murid & Fasilitas)" 
-                  id="kriteriaPembelajaran" 
-                  as="textarea" 
-                  rows={4} 
-                  placeholder="Deskripsikan kondisi murid (heterogen/minat), fasilitas madrasah (LCD, Laboratorium), dan sumber daya yang tersedia..." 
-                  value={formData.kriteriaPembelajaran} 
-                  onChange={handleChange} 
-                />
-
-                <div className={`p-4 rounded-xl border-2 transition-all ${isCpWarning ? "bg-red-50 border-red-300" : "bg-blue-50 border-blue-100"}`}>
-                  <label className={`block text-sm font-bold mb-2 uppercase ${isCpWarning ? "text-red-800" : "text-blue-800"}`}>
-                    Capaian Pembelajaran (CP) {isCpWarning ? "⚠️" : "✅"}
-                  </label>
-                  <textarea 
-                    id="capaianPembelajaran" 
-                    rows={6} 
-                    value={formData.capaianPembelajaran} 
-                    onChange={handleChange} 
-                    className={`w-full px-4 py-3 rounded-lg text-sm bg-white border focus:outline-none transition-all ${isCpWarning ? "border-red-200 text-red-900 italic font-medium" : "border-blue-200 text-gray-700"}`}
-                    placeholder="Data CP akan muncul otomatis setelah memilih Mata Pelajaran, Jenjang, and Kelas..."
-                  />
-                  {isCpWarning && <p className="text-xs text-red-600 mt-2 font-bold uppercase tracking-tight italic">Cek kembali kesesuaian Jenjang dan Kelas!</p>}
+                <div className={`mt-8 p-8 rounded-3xl border-2 transition-all ${isCpWarning ? "bg-red-50 border-red-200" : "bg-indigo-50 border-indigo-100"}`}>
+                  <label className="block text-sm font-black mb-3 uppercase text-indigo-900">Capaian Pembelajaran (CP)</label>
+                  <textarea id="capaianPembelajaran" rows={5} value={formData.capaianPembelajaran} onChange={handleChange} className="w-full px-6 py-4 rounded-2xl text-sm border-0 shadow-sm focus:ring-2 focus:ring-indigo-300 outline-none" />
                 </div>
               </section>
 
               <section>
-                <div className="flex items-center gap-2 mb-6 border-l-4 border-purple-600 pl-4">
-                  <h2 className="text-lg font-black text-purple-900 uppercase">3. Karakter & Profil Lulusan</h2>
+                <div className="flex items-center gap-4 mb-8 border-l-8 border-pink-600 pl-5">
+                  <h2 className="text-2xl font-black text-pink-950 uppercase tracking-tight">3. Dimensi Profil & Nilai Cinta</h2>
                 </div>
-                <div className="mb-4">
-                  <label className="text-sm font-bold text-purple-800 mb-2 block uppercase">8 Dimensi Profil Lulusan (DPL):</label>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 bg-purple-50 p-4 rounded-xl border border-purple-100">
-                    {DPL_OPTIONS.map(opt => (
-                        <label key={opt} className="flex items-center gap-2 p-2 bg-white rounded-lg shadow-sm cursor-pointer border hover:border-purple-400 transition-all">
-                          <input type="checkbox" checked={formData.dpl.includes(opt)} onChange={() => handleCheckboxChange('dpl', opt)} className="w-4 h-4 accent-purple-600" />
-                          <span className="text-[10px] leading-tight font-bold text-purple-900 uppercase">{opt}</span>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                  <div>
+                    <h3 className="text-sm font-bold text-pink-800 uppercase mb-4">Dimensi Profil Lulusan:</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {DPL_OPTIONS.map(opt => (
+                        <label key={opt} className={`flex items-center gap-3 p-4 rounded-2xl cursor-pointer border-2 transition-all ${formData.dpl.includes(opt) ? "bg-pink-100 border-pink-400" : "bg-white border-gray-100"}`}>
+                          <input type="checkbox" checked={formData.dpl.includes(opt)} onChange={() => handleCheckboxChange('dpl', opt)} className="w-5 h-5 accent-pink-600 rounded" />
+                          <span className="text-[10px] font-bold text-pink-900 uppercase leading-tight">{opt}</span>
                         </label>
                       ))}
-                  </div>
-                </div>
-                <div className="mt-6">
-                  <label className="text-sm font-bold text-pink-800 mb-2 block uppercase">Nilai Panca Cinta (KBC):</label>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    {PANCA_CINTA_OPTIONS.map(opt => (
-                      <label key={opt} className="flex items-center gap-3 p-3 bg-pink-50 rounded-xl cursor-pointer border border-pink-100 hover:bg-pink-100 transition-all">
-                        <input type="checkbox" checked={formData.pancaCinta.includes(opt)} onChange={() => handleCheckboxChange('pancaCinta', opt)} className="w-5 h-5 accent-pink-600" />
-                        <span className="text-xs font-black text-pink-700 uppercase">{opt}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-                <div className="mt-6">
-                    <div className="flex justify-between items-center mb-2">
-                        <label className="text-sm font-bold text-gray-800 uppercase">Tujuan Pembelajaran</label>
-                        <button type="button" onClick={handleAiGenerateObjectives} disabled={isAiLoading} className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-[10px] font-black hover:bg-indigo-700 active:scale-95 transition-all">
-                            {isAiLoading ? "MEMPROSES..." : "AUTO-RUMUSKAN TP (AI)"}
-                        </button>
                     </div>
-                    <textarea id="tujuanPembelajaran" rows={4} value={formData.tujuanPembelajaran} onChange={handleChange} className="w-full px-4 py-3 border-2 border-gray-100 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-indigo-400 transition-all" placeholder="Deskripsikan tujuan pembelajaran yang ingin dicapai..." />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-red-800 uppercase mb-4">Panca Cinta (KBC):</h3>
+                    <div className="grid grid-cols-1 gap-3">
+                      {PANCA_CINTA_OPTIONS.map(opt => (
+                        <label key={opt} className={`flex items-center gap-3 p-4 rounded-2xl cursor-pointer border-2 transition-all ${formData.pancaCinta.includes(opt) ? "bg-red-50 border-red-300" : "bg-white border-gray-100"}`}>
+                          <input type="checkbox" checked={formData.pancaCinta.includes(opt)} onChange={() => handleCheckboxChange('pancaCinta', opt)} className="w-5 h-5 accent-red-600 rounded" />
+                          <span className="text-[10px] font-bold text-red-900 uppercase leading-tight">{opt}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-10">
+                    <button type="button" onClick={handleAiGenerateObjectives} disabled={isAiLoading} className="w-full bg-indigo-50 text-indigo-700 py-6 rounded-2xl font-black text-sm mb-4 border-2 border-dashed border-indigo-200 hover:bg-indigo-100 transition-colors shadow-sm active:scale-[0.99]">
+                        {isAiLoading ? "⏳ MERUMUSKAN TUJUAN KOMPREHENSIF (C1-C6)..." : "🤖 AUTO-GENERATE TUJUAN PEMBELAJARAN (AI)"}
+                    </button>
+                    <textarea id="tujuanPembelajaran" rows={4} value={formData.tujuanPembelajaran} onChange={handleChange} className="w-full px-6 py-4 border-2 border-gray-100 rounded-2xl text-sm focus:border-indigo-400 outline-none" placeholder="Hasil rumusan tujuan pembelajaran akan muncul di sini..." />
                 </div>
               </section>
 
               <section>
-                <div className="flex items-center gap-2 mb-6 border-l-4 border-orange-600 pl-4">
-                  <h2 className="text-lg font-black text-orange-900 uppercase">4. Rencana Asesmen</h2>
+                <div className="flex items-center gap-4 mb-8 border-l-8 border-orange-500 pl-5">
+                  <h2 className="text-2xl font-black text-orange-950 uppercase tracking-tight">4. Konfigurasi Evaluasi & Penandatanganan</h2>
                 </div>
-                
-                <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 mb-6">
-                  <label className="block text-sm font-bold text-blue-800 mb-2 uppercase tracking-tight">Jenis Asesmen Proses (Observasi/Kinerja)</label>
-                  <select 
-                    id="asesmenTengah.jenisKegiatan" 
-                    value={formData.asesmenTengah.jenisKegiatan} 
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 border-2 border-blue-200 rounded-lg focus:outline-none focus:border-blue-500 transition-all text-sm bg-white"
-                  >
-                    <option value="">-- Pilih Jenis Asesmen Proses --</option>
-                    {processAssessmentOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                  </select>
-                  <p className="text-xs text-blue-600 mt-1 italic">Pilih aktivitas murid yang akan dinilai secara proses (diskusi, presentasi, dll).</p>
-                </div>
+                <div className="bg-orange-50 p-10 rounded-[2.5rem] border-2 border-orange-100 space-y-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <InputGroup label="Metode Asesmen Proses" id="asesmenTengah.jenisKegiatan" as="select" options={Object.keys(RUBRIK_DATABASE)} value={formData.asesmenTengah.jenisKegiatan} onChange={handleChange} />
+                        <InputGroup label="Kota Pembuatan (Lokasi)" id="kota" placeholder="e.g. Jakarta" value={formData.kota} onChange={handleChange} />
+                    </div>
+                    
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+                        <InputGroup label="PG HOTS" id="jumlahPGHOTS" type="number" value={formData.jumlahPGHOTS} onChange={handleChange} />
+                        <InputGroup label="PG Komp." id="jumlahPGKompleks" type="number" value={formData.jumlahPGKompleks} onChange={handleChange} />
+                        <InputGroup label="Isian" id="jumlahIsian" type="number" value={formData.jumlahIsian} onChange={handleChange} />
+                        <InputGroup label="B / S" id="jumlahBenarSalah" type="number" value={formData.jumlahBenarSalah} onChange={handleChange} />
+                        <InputGroup label="Jodoh" id="jumlahMenjodohkan" type="number" value={formData.jumlahMenjodohkan} onChange={handleChange} />
+                        <InputGroup label="Uraian" id="jumlahUraian" type="number" value={formData.jumlahUraian} onChange={handleChange} />
+                    </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6 bg-orange-50 p-4 rounded-xl border border-orange-100">
-                  <InputGroup label="PG HOTS" id="jumlahPGHOTS" type="number" value={formData.jumlahPGHOTS} onChange={handleChange} />
-                  <InputGroup label="PG Komp." id="jumlahPGKompleks" type="number" value={formData.jumlahPGKompleks} onChange={handleChange} />
-                  <InputGroup label="B / S" id="jumlahBenarSalah" type="number" value={formData.jumlahBenarSalah} onChange={handleChange} />
-                  <InputGroup label="Isian" id="jumlahIsian" type="number" value={formData.jumlahIsian} onChange={handleChange} />
-                  <InputGroup label="Uraian" id="jumlahUraian" type="number" value={formData.jumlahUraian} onChange={handleChange} />
-                  <InputGroup label="Jodoh" id="jumlahMenjodohkan" type="number" value={formData.jumlahMenjodohkan} onChange={handleChange} />
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-gray-100 p-4 rounded-xl">
-                  <InputGroup label="Kota TTD" id="kota" placeholder="Kota" value={formData.kota} onChange={handleChange} />
-                  <InputGroup label="Tgl" id="tanggalPengesahan" type="number" value={formData.tanggalPengesahan} onChange={handleChange} />
-                  <InputGroup label="Bulan" id="bulanPengesahan" as="select" options={['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember']} value={formData.bulanPengesahan} onChange={handleChange} />
-                  <InputGroup label="Tahun" id="tahunPengesahan" as="select" options={['2024', '2025', '2026', '2027']} value={formData.tahunPengesahan} onChange={handleChange} />
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <InputGroup label="Tanggal Pengesahan" id="tanggalPengesahan" value={formData.tanggalPengesahan} onChange={handleChange} />
+                        <InputGroup label="Bulan Pengesahan" id="bulanPengesahan" as="select" options={['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember']} value={formData.bulanPengesahan} onChange={handleChange} />
+                        <InputGroup label="Tahun Pengesahan" id="tahunPengesahan" value={formData.tahunPengesahan} onChange={handleChange} />
+                    </div>
                 </div>
               </section>
 
-              <button 
-                type="submit" 
-                disabled={isGenerating} 
-                className="w-full bg-gradient-to-r from-indigo-800 to-purple-900 text-white font-black py-6 rounded-2xl shadow-2xl hover:scale-[1.01] active:scale-95 transition-all text-2xl uppercase tracking-widest border-b-8 border-indigo-950"
-              >
-                {isGenerating ? "⏳ SEDANG MENYUSUN DOKUMEN..." : "✨ GENERATE & SIMPAN RPP"}
+              <button type="submit" disabled={isGenerating} className="w-full bg-indigo-900 text-white font-black py-10 rounded-3xl shadow-2xl hover:bg-black active:scale-[0.98] transition-all text-2xl uppercase tracking-[0.2em] border-b-8 border-indigo-950">
+                {isGenerating ? "⏳ MENYUSUN RPM BERBASIS CINTA..." : "🚀 GENERATE RPM (RENCANA PEMBELAJARAN MENDALAM)"}
               </button>
             </form>
           </div>

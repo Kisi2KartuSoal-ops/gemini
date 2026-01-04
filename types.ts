@@ -1,3 +1,4 @@
+
 export type Jenjang = 'MI' | 'MTs' | 'MA' | '';
 export type Fase = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | '';
 
@@ -42,12 +43,12 @@ export interface RppFormData {
   jumlahMenjodohkan: number;
   dpl: string[];
   pancaCinta: string[];
-  prinsip: {
+  prinsip?: {
     berkesadaran: string;
     bermakna: string;
     menyenangkan: string;
   };
-  kerangka: {
+  kerangka?: {
     praktikPedagogis: string;
     lingkungan: string;
     kemitraan: string;
@@ -59,13 +60,6 @@ export interface RppFormData {
     instrumen: string;
     rubrik: RubrikItem[];
   };
-}
-
-export interface BankSoalItem {
-  tipe: 'kompleks' | 'hots' | 'benar_salah' | 'uraian' | 'isian' | 'menjodohkan';
-  soal?: string;
-  pernyataan?: string;
-  opsi?: string[];
 }
 
 export interface DatabaseCP {
